@@ -1,0 +1,35 @@
+#cloud-config
+
+coreos:
+  etcd:
+    # generate a new token for each unique cluster from https://discovery.etcd.io/new
+    # WARNING: replace each time you 'vagrant destroy'
+    #discovery: https://discovery.etcd.io/<token>
+    addr: $public_ipv4:4001
+    peer-addr: $public_ipv4:7001
+  fleet:
+    public-ip: $public_ipv4
+  units:
+    - name: etcd.service
+      command: start
+    - name: fleet.service
+      command: start
+    - name: teamspeak3.service
+      command: start
+      enable: true
+      content: |
+        [Unit]
+        Description=MyTeamspeak
+        After=docker.service
+        Requires=docker.service
+        
+        [Service]
+        TimeoutStartSec=0
+        ExecStartPre=-/usr/bin/docker run -v /srv/teamspeak3 --name=ts3data busybox true
+        ExecStartPre=-/usr/bin/docker rm teamspeak3
+        ExecStartPre=/usr/bin/docker build -t agarstang/docker-teamspeak3 https://github.com/agarstang/docker-teamspeak3.git
+        ExecStart=/usr/bin/docker run --rm --name=teamspeak3 --volumes-from=ts3data -p 9987:9987/udp -p 10011:10011 -p 30033:30033 agarstang/docker-teamspeak3
+        ExecStop=/usr/bin/docker stop teamspeak3
+        
+        [Install]
+        WantedBy=multi-user.target
